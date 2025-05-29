@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Downloader</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
+            <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Video Downloader</h1>
+            
+            <div class="space-y-4">
+                <div class="flex space-x-4">
+                    <input type="text" id="urlInput" 
+                           class="flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                           placeholder="Paste Facebook or Instagram video URL here">
+                    <button onclick="getVideoInfo()" 
+                            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none">
+                        Get Video
+                    </button>
+                </div>
+
+                <div id="result" class="hidden space-y-4">
+                    <div id="videoInfo" class="space-y-2">
+                        <h2 class="text-xl font-semibold" id="videoTitle"></h2>
+                        <img id="thumbnail" class="w-full rounded-lg" src="" alt="Video thumbnail">
+                        <p id="duration" class="text-gray-600"></p>
+                    </div>
+
+                    <div id="downloadOptions" class="space-y-2">
+                        <h3 class="text-lg font-semibold">Download Options:</h3>
+                        <div id="formatsList" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <div id="error" class="hidden text-red-500 text-center"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function getVideoInfo() {
+            const urlInput = document.getElementById('urlInput');
+            const result = document.getElementById('result');
+            const error = document.getElementById('error');
+            const videoTitle = document.getElementById('videoTitle');
+            const thumbnail = document.getElementById('thumbnail');
+            const duration = document.getElementById('duration');
+            const formatsList = document.getElementById('formatsList');
+
+            // Reset UI
+            result.classList.add('hidden');
+            error.classList.add('hidden');
+            formatsList.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: urlInput.value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Show video information
+                    videoTitle.textContent = data.title;
+                    thumbnail.src = data.thumbnail;
+                    duration.textContent = `Duration: ${formatDuration(data.duration)}`;
+
+                    // Display download options
+                    data.formats.forEach(format => {
+                        const button = document.createElement('a');
+                        button.href = format.url;
+                        button.target = '_blank';
+                        button.className = 'block w-full p-2 mb-2 text-center bg-green-500 text-white rounded hover:bg-green-600';
+                        button.textContent = `Download ${format.resolution || format.format_id} (${format.ext})`;
+                        formatsList.appendChild(button);
+                    });
+
+                    result.classList.remove('hidden');
+                } else {
+                    throw new Error(data.error || 'Failed to get video information');
+                }
+            } catch (err) {
+                error.textContent = err.message;
+                error.classList.remove('hidden');
+            }
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return 'Unknown';
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html> 
