@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <main class="min-h-screen p-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl font-bold text-center mb-8">
+                Video Downloader
+            </h1>
+            
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="space-y-4">
+                    <div class="flex gap-4">
+                        <input
+                            type="text"
+                            id="url-input"
+                            placeholder="Enter video URL (Facebook, Instagram, YouTube, etc.)"
+                            class="flex-1 p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            onclick="checkVideo()"
+                            id="check-btn"
+                            class="bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600"
+                        >
+                            Check Video
+                        </button>
+                    </div>
+                </div>
+
+                <div id="video-info" class="mt-4 hidden">
+                    <div class="p-4 bg-gray-50 rounded-md">
+                        <div class="flex items-start gap-4 mb-4">
+                            <img id="video-thumbnail" class="w-32 h-32 object-cover rounded" />
+                            <div>
+                                <h3 id="video-title" class="font-semibold mb-2"></h3>
+                                <p id="video-duration" class="text-sm text-gray-600"></p>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <p class="text-sm text-gray-600">Select Quality:</p>
+                            <div id="quality-options" class="flex flex-wrap gap-2">
+                                <!-- Quality options will be inserted here -->
+                            </div>
+                        </div>
+
+                        <button
+                            onclick="downloadVideo()"
+                            id="download-btn"
+                            class="mt-4 w-full bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hidden"
+                        >
+                            Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 text-center text-gray-600">
+                <h2 class="text-2xl font-semibold mb-4">How to use:</h2>
+                <ol class="text-left max-w-md mx-auto space-y-2">
+                    <li>1. Copy and paste the video URL</li>
+                    <li>2. Click "Check Video" to see available qualities</li>
+                    <li>3. Select your preferred quality</li>
+                    <li>4. Click Download and wait for the download to complete</li>
+                </ol>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let selectedQuality = null;
+        const API_URL = 'http://localhost:3001';
+
+        function formatDuration(seconds) {
+            if (!seconds) return '';
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${hrs ? hrs + ':' : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        async function checkVideo() {
+            const url = document.getElementById('url-input').value;
+            if (!url) return;
+
+            try {
+                const response = await axios.post(`${API_URL}/api/info`, { url });
+                const { qualities, title, thumbnail, duration } = response.data;
+                
+                // Show video info
+                document.getElementById('video-info').classList.remove('hidden');
+                document.getElementById('video-title').textContent = title;
+                document.getElementById('video-thumbnail').src = thumbnail;
+                document.getElementById('video-duration').textContent = formatDuration(duration);
+
+                // Create quality options
+                const qualityOptionsContainer = document.getElementById('quality-options');
+                qualityOptionsContainer.innerHTML = '';
+                qualities.forEach(quality => {
+                    const button = document.createElement('button');
+                    button.className = 'px-4 py-2 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300';
+                    button.textContent = `${quality.label} (${quality.size})`;
+                    button.onclick = () => selectQuality(quality.label);
+                    qualityOptionsContainer.appendChild(button);
+                });
+
+                // Show download button
+                document.getElementById('download-btn').classList.remove('hidden');
+                selectQuality(qualities[0].label);
+            } catch (error) {
+                console.error('Failed to fetch video info:', error);
+                alert('Failed to get video information. Please check the URL and try again.');
+            }
+        }
+
+        function selectQuality(quality) {
+            selectedQuality = quality;
+            // Update quality button styles
+            document.querySelectorAll('#quality-options button').forEach(button => {
+                if (button.textContent.startsWith(quality)) {
+                    button.className = 'px-4 py-2 rounded-md text-sm bg-blue-500 text-white';
+                } else {
+                    button.className = 'px-4 py-2 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300';
+                }
+            });
+        }
+
+        async function downloadVideo() {
+            const url = document.getElementById('url-input').value;
+            if (!url || !selectedQuality) return;
+
+            try {
+                const response = await axios.post(`${API_URL}/api/download`, {
+                    url,
+                    quality: selectedQuality
+                });
+
+                const { url: downloadUrl, title } = response.data;
+                
+                // Create a temporary anchor element to trigger the download
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = `${title || 'video'}.mp4`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (error) {
+                console.error('Download failed:', error);
+                alert('Failed to download video. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html> 
